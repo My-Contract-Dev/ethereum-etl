@@ -71,6 +71,27 @@ def create_item_exporter(output):
             },
             converters=[UnixTimestampItemConverter(), IntToDecimalItemConverter(),
                         ListFieldItemConverter('topics', 'topic', fill=4)])
+
+    elif item_exporter_type == ItemExporterType.CLICKHOUSE:
+        from blockchainetl.jobs.exporters.clickhouse_item_exporter import ClickhouseItemExporter
+        from blockchainetl.streaming.clickhouse_utils import create_insert_statement_for_table
+        from blockchainetl.jobs.exporters.converters.unix_timestamp_item_converter import UnixTimestampItemConverter
+        from blockchainetl.jobs.exporters.converters.int_to_decimal_item_converter import IntToDecimalItemConverter
+        from blockchainetl.jobs.exporters.converters.list_field_item_converter import ListFieldItemConverter
+        from ethereumetl.streaming.clickhouse_tables import BLOCKS, TRANSACTIONS, LOGS, TOKEN_TRANSFERS, TRACES, TOKENS, CONTRACTS
+
+        item_exporter = ClickhouseItemExporter(
+            output, item_type_to_insert_stmt_mapping={
+                'block': create_insert_statement_for_table(BLOCKS),
+                'transaction': create_insert_statement_for_table(TRANSACTIONS),
+                'log': create_insert_statement_for_table(LOGS),
+                'token_transfer': create_insert_statement_for_table(TOKEN_TRANSFERS),
+                'trace': create_insert_statement_for_table(TRACES),
+                'token': create_insert_statement_for_table(TOKENS),
+                'contract': create_insert_statement_for_table(CONTRACTS),
+            },
+            converters=[ListFieldItemConverter('topics', 'topic', fill=4)])
+
     elif item_exporter_type == ItemExporterType.GCS:
         from blockchainetl.jobs.exporters.gcs_item_exporter import GcsItemExporter
         bucket, path = get_bucket_and_path_from_gcs_output(output)
@@ -113,6 +134,8 @@ def determine_item_exporter_type(output):
         return ItemExporterType.KAFKA
     elif output is not None and output.startswith('postgresql'):
         return ItemExporterType.POSTGRES
+    elif output is not None and output.startswith('clickhouse'):
+        return ItemExporterType.CLICKHOUSE
     elif output is not None and output.startswith('gs://'):
         return ItemExporterType.GCS
     elif output is None or output == 'console':
@@ -124,6 +147,7 @@ def determine_item_exporter_type(output):
 class ItemExporterType:
     PUBSUB = 'pubsub'
     POSTGRES = 'postgres'
+    CLICKHOUSE = 'clickhouse'
     GCS = 'gcs'
     CONSOLE = 'console'
     KAFKA = 'kafka'
